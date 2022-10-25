@@ -1,0 +1,160 @@
+Parameters:
+  ProjectName:
+    Type: String
+    Default: Beluto
+
+  EventRuleName:
+    Type: String
+    Default: CPU-utilization-alarm-rule-2
+
+  LogGroupName:
+    Type: String
+    Default: beluto-alarm-group-2
+
+  LambdaFunctionName:
+    Type: String
+    Default: changeEmail2
+
+  SNSTopicName:
+    Type: String
+    Default: BelutoTopic2
+
+  EmailSubscription:
+    Type: String
+    AllowedPattern: '[^\s@]+@[^\s@]+\.[^\s@]+'
+    # Default: cloud@smartosc.com
+
+Resources:
+  SNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Ref SNSTopicName
+      Subscription:
+        - Endpoint: !Ref EmailSubscription
+          Protocol: email
+
+  EventRuleForAlarm:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Ref EventRuleName
+      Description: Routes to log group and lamda function
+      EventBusName: default
+      State: ENABLED
+      EventPattern:
+        source:
+          - aws.cloudwatch
+        detail-type:
+          - CloudWatch Alarm State Change
+        detail:
+          state:
+            value:
+              - ALARM
+      Targets:
+        - Arn: !GetAtt AlarmLogGroup.Arn
+          Id: !Sub ${AWS::StackName}-${LogGroupName}
+        - Arn: !GetAtt LambdaFunction.Arn
+          Id: !Sub ${AWS::StackName}-${LambdaFunctionName}
+
+  AlarmLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/events/${LogGroupName}
+
+  PermissionForEventsToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref LambdaFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt EventRuleForAlarm.Arn
+
+  LambdaFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName:
+        Fn::Sub: ${AWS::StackName}-LambdaFunctionRole
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName:
+            Fn::Sub: ${AWS::StackName}-LambdaFunctionPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - Fn::Sub: arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*
+              - Effect: Allow
+                Action: sns:Publish
+                Resource:
+                  - Fn::Sub: arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${SNSTopicName}
+
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Ref LambdaFunctionName
+      Description: Create message to send email
+      Runtime: python3.9
+      Role: !GetAtt LambdaFunctionRole.Arn
+      Handler: index.lambda_handler
+      Environment:
+        Variables:
+          SNS_TOPIC_ARN: !Sub arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${SNSTopicName}
+          PROJECT_NAME: !Ref ProjectName
+      Code:
+        ZipFile: |
+          import boto3
+          import json
+          import os
+          from datetime import datetime
+          from dateutil import tz
+          from urllib.parse import quote
+
+          def lambda_handler(event, context):
+            client = boto3.client('sns')
+            hanoiTZ = tz.gettz('Asia/Bangkok')
+            timestamp = datetime.strptime(event['time'], "%Y-%m-%dT%H:%M:%SZ")
+            localTimeStamp = timestamp.astimezone(hanoiTZ).strftime("%Y-%m-%d %H:%M:%S")
+            targetSNSTopicArn = os.environ.get('SNS_TOPIC_ARN')
+            projectName = os.environ.get('PROJECT_NAME')
+
+            detail = event['detail']
+            metric = event['detail']['configuration']['metrics'][0]
+            subject = projectName + " ALARM: \"" + detail['alarmName'] + "\" in Asia Pacific (Singapore)"
+            message = "Alarm Details:"
+            message = message + "\n- Name:                       " + detail['alarmName']
+            message = message + "\n- Description:                " + detail['configuration']['description']
+            message = message + "\n- State Change:               " + detail['previousState']['value'] + " -> " + detail['state']['value']
+            message = message + "\n- Reason for State Change:    " + detail['state']['reason']
+            message = message + "\n- Timestamp:                  " + localTimeStamp
+            message = message + "\n- AWS Account:                " + event['account']
+            message = message + "\n- Alarm Arn:                  " + event['resources'][0]
+            message = message + "\n\nMonitored Metric:"
+            message = message + "\n- MetricNamespace:            " + metric['metricStat']['metric']['namespace']
+            message = message + "\n- MetricName:                 " + metric['metricStat']['metric']['name']
+            message = message + "\n- InstanceId:                 " + metric['metricStat']['metric']['dimensions'].get('InstanceId', 'data missing')
+            message = message + "\n- Period:                     " + str(metric['metricStat']['period'])
+            message = message + "\n- Statistic:                  " + metric['metricStat']['stat']
+            message = message + "\n- Unit:                       " + metric['metricStat'].get('unit', 'not specified')
+            message = message + "\n\nView this alarm in the AWS Management Console:\n"
+            url = 'https://' + event['region'] + '.console.aws.amazon.com/cloudwatch/deeplink.js?region=' + event['region'] + '#alarmsV2:alarm/' + quote(detail['alarmName'])
+            message = message + url
+
+            response = client.publish(
+                TargetArn=targetSNSTopicArn,
+                MessageStructure='text',
+                Subject=subject,
+                Message=message,
+            )
+
+            return response

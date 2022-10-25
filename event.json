@@ -1,0 +1,47 @@
+{
+  "version": "0",
+  "id": "c3522353-ed3f-815b-f1dd-160ee5ed3ada",
+  "detail-type": "CloudWatch Alarm State Change",
+  "source": "aws.cloudwatch",
+  "account": "269597175775",
+  "time": "2022-10-24T03:45:33Z",
+  "region": "us-east-1",
+  "resources": [
+    "arn:aws:cloudwatch:us-east-1:269597175775:alarm:High CPU alarm 1"
+  ],
+  "detail": {
+    "alarmName": "High CPU alarm 1",
+    "state": {
+      "value": "ALARM",
+      "reason": "Threshold Crossed: 1 out of the last 1 datapoints [99.6460317460317 (24/10/22 03:35:00)] was greater than the threshold (70.0) (minimum 1 datapoint for OK -> ALARM transition).",
+      "reasonData": "{\"version\":\"1.0\",\"queryDate\":\"2022-10-24T03:45:33.275+0000\",\"startDate\":\"2022-10-24T03:35:00.000+0000\",\"statistic\":\"Average\",\"period\":300,\"recentDatapoints\":[99.6460317460317],\"threshold\":70.0,\"evaluatedDatapoints\":[{\"timestamp\":\"2022-10-24T03:35:00.000+0000\",\"sampleCount\":5.0,\"value\":99.6460317460317}]}",
+      "timestamp": "2022-10-24T03:45:33.278+0000"
+    },
+    "previousState": {
+      "value": "OK",
+      "reason": "Threshold Crossed: 1 out of the last 1 datapoints [4.428979314177273 (24/10/22 03:25:00)] was not greater than the threshold (70.0) (minimum 1 datapoint for ALARM -> OK transition).",
+      "reasonData": "{\"version\":\"1.0\",\"queryDate\":\"2022-10-24T03:35:33.275+0000\",\"startDate\":\"2022-10-24T03:25:00.000+0000\",\"statistic\":\"Average\",\"period\":300,\"recentDatapoints\":[4.428979314177273],\"threshold\":70.0,\"evaluatedDatapoints\":[{\"timestamp\":\"2022-10-24T03:25:00.000+0000\",\"sampleCount\":5.0,\"value\":4.428979314177273}]}",
+      "timestamp": "2022-10-24T03:35:33.297+0000"
+    },
+    "configuration": {
+      "metrics": [
+        {
+          "id": "d8c203ed-8a68-02a6-1a99-55556a9b51b3",
+          "metricStat": {
+            "metric": {
+              "namespace": "AWS/EC2",
+              "name": "CPUUtilization",
+              "dimensions": {
+                "InstanceId": "i-05d88837a7aad3962"
+              }
+            },
+            "period": 300,
+            "stat": "Average"
+          },
+          "returnData": true
+        }
+      ],
+      "description": "Alarm when over 70 percent"
+    }
+  }
+}
