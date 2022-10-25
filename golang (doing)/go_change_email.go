@@ -10,8 +10,8 @@ import (
   // "log"
 )
 
-func Handler(ctx context.Context, event string) (string, error) {
-  fmt.Printf("Detail = %s\n", event)
+func Handler(ctx context.Context, event events.CloudWatchEvent) (string, error) {
+  fmt.Printf("Detail = %s\n", events.Detail)
   return "abc", nil
 }
 
