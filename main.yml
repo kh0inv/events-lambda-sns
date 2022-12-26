@@ -1,28 +1,28 @@
 Parameters:
   ProjectName:
     Type: String
-    Default: Beluto
+    Default: beluto
 
   EventRuleName:
     Type: String
-    Default: CPU-utilization-alarm-rule-2
+    Default: beluto-alarm-email-rule
 
   LogGroupName:
     Type: String
-    Default: beluto-alarm-group-2
+    Default: beluto-alarm-email-group
 
   LambdaFunctionName:
     Type: String
-    Default: changeEmail2
+    Default: changeAlarmEmail
 
   SNSTopicName:
     Type: String
-    Default: BelutoTopic2
+    Default: beluto-monitoring-topic
 
   EmailSubscription:
     Type: String
     AllowedPattern: '[^\s@]+@[^\s@]+\.[^\s@]+'
-    # Default: cloud@smartosc.com
+    Default: khoinv@smartosc.com
 
 Resources:
   SNSTopic:
@@ -32,6 +32,9 @@ Resources:
       Subscription:
         - Endpoint: !Ref EmailSubscription
           Protocol: email
+      Tags:
+        - Key: createdby
+          Value: KhoiNV
 
   EventRuleForAlarm:
     Type: AWS::Events::Rule
@@ -50,7 +53,7 @@ Resources:
             value:
               - ALARM
       Targets:
-        - Arn: !GetAtt AlarmLogGroup.Arn
+        - Arn: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${AlarmLogGroup}
           Id: !Sub ${AWS::StackName}-${LogGroupName}
         - Arn: !GetAtt LambdaFunction.Arn
           Id: !Sub ${AWS::StackName}-${LambdaFunctionName}
@@ -59,6 +62,9 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/events/${LogGroupName}
+      Tags:
+        - Key: createdby
+          Value: KhoiNV
 
   PermissionForEventsToInvokeLambda:
     Type: AWS::Lambda::Permission
@@ -98,6 +104,9 @@ Resources:
                 Action: sns:Publish
                 Resource:
                   - Fn::Sub: arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${SNSTopicName}
+      Tags:
+        - Key: createdby
+          Value: KhoiNV
 
   LambdaFunction:
     Type: AWS::Lambda::Function
@@ -111,6 +120,9 @@ Resources:
         Variables:
           SNS_TOPIC_ARN: !Sub arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${SNSTopicName}
           PROJECT_NAME: !Ref ProjectName
+      Tags:
+        - Key: createdby
+          Value: KhoiNV
       Code:
         ZipFile: |
           import boto3
@@ -127,13 +139,20 @@ Resources:
             localTimeStamp = timestamp.astimezone(hanoiTZ).strftime("%Y-%m-%d %H:%M:%S")
             targetSNSTopicArn = os.environ.get('SNS_TOPIC_ARN')
             projectName = os.environ.get('PROJECT_NAME')
+            region = os.environ.get('AWS_REGION')
+            regionName = region
+            if region == 'ap-southeast-1':
+              regionName = 'Singapore'
+            if region == 'us-east-1':
+              regionName = 'N. Virginia'
 
             detail = event['detail']
             metric = event['detail']['configuration']['metrics'][0]
-            subject = projectName + " ALARM: \"" + detail['alarmName'] + "\" in Asia Pacific (Singapore)"
+            subject = projectName.upper() + " Alarm: \"" + detail['alarmName'] + "\" in " + regionName
             message = "Alarm Details:"
             message = message + "\n- Name:                       " + detail['alarmName']
-            message = message + "\n- Description:                " + detail['configuration']['description']
+            if "description" in detail['configuration']:
+              message = message + "\n- Description:                " + detail['configuration']['description']
             message = message + "\n- State Change:               " + detail['previousState']['value'] + " -> " + detail['state']['value']
             message = message + "\n- Reason for State Change:    " + detail['state']['reason']
             message = message + "\n- Timestamp:                  " + localTimeStamp
