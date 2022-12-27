@@ -53,10 +53,10 @@ resource "aws_cloudwatch_log_group" "alarm_group" {
   }
 }
 
-resource "null_resource" "zip_code" {
-  provisioner "local-exec" {
-    command = "tar -cvzf changeAlarmEmail.zip changeAlarmEmail.py"
-  }
+data "archive_file" "change_email_code" {
+  type        = "zip"
+  source_file = "${path.module}/changeAlarmEmail.py"
+  output_path = "${path.module}/changeAlarmEmail.zip"
 }
 
 resource "aws_lambda_function" "change_email_function" {
@@ -67,7 +67,7 @@ resource "aws_lambda_function" "change_email_function" {
   handler       = "changeAlarmEmail.lambda_handler"
 
   filename         = "changeAlarmEmail.zip"
-  source_code_hash = filebase64sha256("changeAlarmEmail.zip")
+  source_code_hash = data.archive_file.change_email_code.output_base64sha256
 
   environment {
     variables = {
@@ -77,7 +77,7 @@ resource "aws_lambda_function" "change_email_function" {
   }
 
   depends_on = [
-    null_resource.zip_code
+    data.archive_file.change_email_code
   ]
 
   tags = {
