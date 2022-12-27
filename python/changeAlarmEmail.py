@@ -9,13 +9,22 @@ def lambda_handler(event, context):
     hanoiTZ = tz.gettz('Asia/Bangkok')
     timestamp = datetime.strptime(event['time'], "%Y-%m-%dT%H:%M:%SZ")
     localTimeStamp = timestamp.astimezone(hanoiTZ).strftime("%Y-%m-%d %H:%M:%S")
+    targetSNSTopicArn = os.environ.get('SNS_TOPIC_ARN')
+    projectName = os.environ.get('PROJECT_NAME')
+    region = os.environ.get('AWS_REGION')
+    regionName = region
+    if region == 'ap-southeast-1':
+        regionName = 'Singapore'
+    if region == 'us-east-1':
+        regionName = 'N. Virginia'
 
     detail = event['detail']
     metric = event['detail']['configuration']['metrics'][0]
-    subject = "Alpha ALARM: \"" + detail['alarmName'] + "\" in Asia Pacific (Singapore)"
+    subject = projectName.upper() + " Alarm: \"" + detail['alarmName'] + "\" in " + regionName
     message = "Alarm Details:"
     message = message + "\n- Name:                       " + detail['alarmName']
-    message = message + "\n- Description:                " + detail['configuration']['description']
+    if "description" in detail['configuration']:
+        message = message + "\n- Description:                " + detail['configuration']['description']
     message = message + "\n- State Change:               " + detail['previousState']['value'] + " -> " + detail['state']['value']
     message = message + "\n- Reason for State Change:    " + detail['state']['reason']
     message = message + "\n- Timestamp:                  " + localTimeStamp

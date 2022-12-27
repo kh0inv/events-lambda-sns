@@ -40,7 +40,7 @@ Resources:
     Type: AWS::Events::Rule
     Properties:
       Name: !Ref EventRuleName
-      Description: Routes to log group and lamda function
+      Description: Capture CloudWatch alarm state change. Routes to log group and lamda function
       EventBusName: default
       State: ENABLED
       EventPattern:
@@ -126,7 +126,6 @@ Resources:
       Code:
         ZipFile: |
           import boto3
-          import json
           import os
           from datetime import datetime
           from dateutil import tz
