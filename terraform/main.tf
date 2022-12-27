@@ -53,12 +53,18 @@ resource "aws_cloudwatch_log_group" "alarm_group" {
   }
 }
 
+resource "null_resource" "zip_code" {
+  provisioner "local-exec" {
+    command = "tar -cvzf changeAlarmEmail.zip changeAlarmEmail.py"
+  }
+}
+
 resource "aws_lambda_function" "change_email_function" {
   function_name = var.lambda_function_name
   description   = "Create message to send email"
   runtime       = "python3.9"
   role          = aws_iam_role.email_function_role.arn
-  handler       = "index.lambda_handler"
+  handler       = "changeAlarmEmail.lambda_handler"
 
   filename         = "changeAlarmEmail.zip"
   source_code_hash = filebase64sha256("changeAlarmEmail.zip")
@@ -69,6 +75,10 @@ resource "aws_lambda_function" "change_email_function" {
       PROJECT_NAME  = var.project
     }
   }
+
+  depends_on = [
+    null_resource.zip_code
+  ]
 
   tags = {
     "createdby" = var.created_by
